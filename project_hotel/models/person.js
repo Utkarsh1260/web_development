@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt=require('bcrypt');
 
 // define the schema
 const personSchema = new mongoose.Schema({
@@ -43,6 +44,33 @@ const personSchema = new mongoose.Schema({
     }
 
 });
+
+// use an async pre hook without the `next` callback; throwing an error signals failure
+personSchema.pre('save', async function () {
+    // `this` is the document being saved
+    if (!this.isModified('password')) {
+        return; // nothing to hash
+    }
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+    } catch (err) {
+        // propagate the error to mongoose
+        throw err;
+    }
+})
+
+personSchema.methods.comparePassword = async function(candidatePassword){
+    try{
+        const isMatch = await bcrypt.compare(candidatePassword, this.password);
+        return isMatch;
+
+    }
+    catch(err){
+        throw err;
+    }
+}
 
 // create model and export
 module.exports = mongoose.model('person', personSchema);
